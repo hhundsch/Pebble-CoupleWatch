@@ -1,0 +1,100 @@
+
+{"friendlyVersion": "VERSION",
+ "versionDefName": "APP_RESOURCES",
+ "media": [
+           {
+	    "type":"png",
+	    "defName":"IMAGE_MENU_ICON",
+	    "file":"images/CoupleWatch.png"
+	   },
+	   {
+	    "type":"png",
+	    "defName":"IMAGE_BG01",
+	    "file":"images/BG01.png"
+	   },
+	   {
+	    "type":"png",
+	    "defName":"IMAGE_BG02",
+	    "file":"images/BG02.png"
+	   },
+	   {
+	    "type":"png",
+	    "defName":"IMAGE_BG03",
+	    "file":"images/BG03.png"
+	   },
+	   {
+	    "type":"png",
+	    "defName":"IMAGE_BG04",
+	    "file":"images/BG04.png"
+	   },
+	   {
+	    "type":"png",
+	    "defName":"IMAGE_BG05",
+	    "file":"images/BG05.png"
+	   },
+           {
+	    "type":"png",
+	    "defName":"IMAGE_GB01",
+	    "file":"images/GB01.png"
+	   },
+	   {
+	    "type":"png",
+	    "defName":"IMAGE_GB02",
+	    "file":"images/GB02.png"
+	   },
+	   {
+	    "type":"png",
+	    "defName":"IMAGE_GB03",
+	    "file":"images/GB03.png"
+	   },
+	   {
+	    "type":"png",
+	    "defName":"IMAGE_GB04",
+	    "file":"images/GB04.png"
+	   },
+	   {
+	    "type":"png",
+	    "defName":"IMAGE_GB05",
+	    "file":"images/GB05.png"
+	   },
+	   {
+	    "type":"png",
+	    "defName":"IMAGE_HEART",
+	    "file":"images/Heart.png"
+	   },
+	   {
+	    "type":"png",
+	    "defName":"IMAGE_POP",
+	    "file":"images/Pop.png"
+	   },
+	   {
+	    "type":"png",
+	    "defName":"IMAGE_ARROW_LEFT",
+	    "file":"images/ArrowLeft.png"
+	   },
+	   {
+	    "type":"png",
+	    "defName":"IMAGE_ARROW_RIGHT",
+	    "file":"images/ArrowRight.png"
+	   },
+	   {
+        "characterRegex": "[0-9:\\s\\-']",
+        "defName": "FONT_HANDSEAN_26",
+        "type": "font",
+        "file": "fonts/handsean.ttf"
+	   },
+	   {
+	   	"trackingAdjust": 1,
+        "characterRegex": "[A-Za-z0-9.\\s\\-]",
+        "defName": "FONT_HANDSEAN_14",
+        "type": "font",
+        "file": "fonts/handsean.ttf"
+	   },
+	   {
+        "characterRegex": "[A-Za-z0-9.\\s\\-\\(\\)]",
+        "defName": "FONT_HANDSEAN_12",
+        "type": "font",
+        "file": "fonts/handsean.ttf"
+	   }
+	  ]
+}
