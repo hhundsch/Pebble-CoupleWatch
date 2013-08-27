@@ -6,14 +6,14 @@
 	//#define ANDROID							//not yet implemented
 
 	//you should only be changing this option when compiling for both watches
-	//this optionwhen set to true makes the compiled watch face use
+	//this option when set to true makes the compiled watch face use the boy character
 	#define BOY_WATCH true 
 
 	//general options
 	#define BOY_ON_LEFT true					
 	#define LEFT_SENDER true				//determines if the character that is on the left will be designated as the "sender" character
 	
-	#define DEFAULT_NAMES true				//if true, the other character will be called "Him" or "Her", otherwise the value of the X_NAME_CUSTOM will be used
+	#define DEFAULT_NAMES true				//if true, the other character will be called "Him" or "Her", otherwise the value of the BOY_NAME_CUSTOM/GIRL_NAME_CUSTOM will be used accordingly
 	#define BOY_NAME_CUSTOM "Him"
 	#define GIRL_NAME_CUSTOM "Her"	
 	
@@ -31,9 +31,9 @@
 	//		(i.e.: if SENDER_START = 30 then the send animation will fire at 1:30:00, 2:30:00, 3:30:00, etc...)
 	//	if START_EVERY_MINUTE is selected, the character sends/receives heart every minute at X seconds 
 	//		(i.e.: if RECEIVER_START = 10 then the receive animation will fire at 1:30:10, 1:31:10, 1:32:10, etc...)
-	//	if START_EVERY_X_HOURS is selected, the character sends heart every X hours 
+	//	if START_EVERY_X_HOURS is selected, the character sends/receives heart every X hours 
 	//		(i.e.: if RECEIVER_START = 2 then the receive animation will fire at 2:00:00, 4:00:00, 6:00:00, etc...)
-	//	if START_EVERY_X_MINUTES is selected, the character sends heart every X minutes 
+	//	if START_EVERY_X_MINUTES is selected, the character sends/receives heart every X minutes 
 	//		(i.e.: if SENDER_START = 5 then the send animation will fire at 2:05:00, 2:10:00, 2:15:00, etc...)
 	//	ALTERNATE_WITH_SEND should only be used by the receiver
 	//		and if selected, the option used by the sender will be followed by both send and receive animations
@@ -41,7 +41,7 @@
 	//		(i.e.: if SENDER_START_OPTIONS = START_EVERY_X_MINUTES and SENDER_START = 30 then the send animation will fire at 2:30:00, 3:30:00, 4:30:00, while the receive animation will fire at 3:00:00, 4:00:00, 5:00:00, etc...)
 	//notes:
 	//	if SENDER_START_OPTIONS = ALTERNATE_WITH_SEND then START_EVERY_HOUR will be used instead
-	//	if the option START_EVERY_X_HOURS is used and SENDER_START/RECEIVER_START = 0 then SENDER_START/RECEIVER_START will be set to 1 instead 
+	//	if the option START_EVERY_X_HOURS/START_EVERY_X_MINUTES is used and SENDER_START/RECEIVER_START = 0 then SENDER_START/RECEIVER_START will be set to 1 instead 
 	//	RECEIVER_START will not be used if RECEIVER_START_OPTIONS = ALTERNATE_WITH_SEND
 	//	animations will not be queued 
 	//		(i.e.: if a send animation is fired while the receive animation is still going on, the send animation will not be performed after the receive animation is done)
