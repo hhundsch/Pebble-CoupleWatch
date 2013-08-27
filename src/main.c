@@ -444,7 +444,8 @@ void setup_animation()
 		
 		property_animation_init_layer_frame(&receive_animation[x], (Layer *) &heart.layer, &receive_frames[x].frame, &receive_frames[x + 1].frame);
 		animation_set_duration(&receive_animation[x].animation, receive_frames[x].duration);
-		animation_set_delay(&receive_animation[x].animation, total_receive_delay);
+		
+		if(total_receive_delay != 0) animation_set_delay(&receive_animation[x].animation, total_receive_delay);
 		total_receive_delay += receive_frames[x].duration;
 		
 		if(x == FRAME_COUNT - 2) //-2 because that is the last item when the condition to break is < X - 1
@@ -719,53 +720,86 @@ void handle_second_tick(AppContextRef ctx, PebbleTickEvent *t)
 		animate_blink();
 	}
 
-	bool send = false;
+	bool sender = false;
+	bool receiver = false;
+	
 	if(SENDER_START_OPTIONS == START_EVERY_HOUR && seconds == 0) 
 	{
-		send = (minutes == SENDER_START);
+		sender = (minutes == SENDER_START);
+		if(RECEIVER_START_OPTIONS == ALTERNATE_WITH_SEND && sender)
+		{
+			sender = (hours % 2 == 0);
+			receiver = (hours % 2 == 1);
+		}
 	}
 	else if(SENDER_START_OPTIONS == START_EVERY_MINUTE) 
 	{
-		send = (seconds == SENDER_START);
+		sender = (seconds == SENDER_START);
+		
+		if(RECEIVER_START_OPTIONS == ALTERNATE_WITH_SEND && sender)
+		{
+			sender = (minutes % 2 == 0);
+			receiver = (minutes % 2 == 1);
+		}
 	}
 	else if(SENDER_START_OPTIONS == START_EVERY_X_HOURS && minutes == 0 && seconds == 0) 
 	{
 		int send_interval = (SENDER_START == 0 ? 1 : SENDER_START);
-		send = (hours % send_interval == 0);
+		sender = (hours % send_interval == 0);
+		
+		if(RECEIVER_START_OPTIONS == ALTERNATE_WITH_SEND && sender)
+		{
+			sender = ((hours / send_interval) % 2 == 0);
+			receiver = ((hours / send_interval) % 2 == 1);
+		}
 	}
 	else if(SENDER_START_OPTIONS == START_EVERY_X_MINUTES && seconds == 0) 
 	{
 		int send_interval = (SENDER_START == 0 ? 1 : SENDER_START);
-		send = (minutes % send_interval == 0);
+		sender = (minutes % send_interval == 0);
+		
+		if(RECEIVER_START_OPTIONS == ALTERNATE_WITH_SEND && sender)
+		{
+			sender = ((minutes / send_interval) % 2 == 0);
+			receiver = ((minutes / send_interval) % 2 == 1);
+		}
+	}
+	else if(SENDER_START_OPTIONS == ALTERNATE_WITH_SEND && seconds == 0)
+	{
+		sender = (minutes == SENDER_START);
+		if(RECEIVER_START_OPTIONS == ALTERNATE_WITH_SEND && sender)
+		{
+			sender = (hours % 2 == 0);
+			receiver = (hours % 2 == 1);
+		}
 	}
 	
-	if(send)
+	if(sender)
 	{
 		if(LEFT_SENDER == left) animate_send();
 		else animate_receive();
 	}
 	
-	bool receive = false;
 	if(RECEIVER_START_OPTIONS == START_EVERY_HOUR && seconds == 0)
 	{
-		receive = (minutes == RECEIVER_START);
+		receiver = (minutes == RECEIVER_START);
 	}
 	else if(RECEIVER_START_OPTIONS == START_EVERY_MINUTE)
 	{
-		receive = (seconds == RECEIVER_START);
+		receiver = (seconds == RECEIVER_START);
 	}
 	else if(RECEIVER_START_OPTIONS == START_EVERY_X_HOURS && minutes == 0 && seconds == 0)
 	{
 		int receive_interval = (RECEIVER_START == 0 ? 1 : RECEIVER_START);
-		receive = (hours % receive_interval == 0);
+		receiver = (hours % receive_interval == 0);
 	}
 	else if(RECEIVER_START_OPTIONS == START_EVERY_X_MINUTES && seconds == 0)
 	{
 		int receive_interval = (RECEIVER_START == 0 ? 1 : RECEIVER_START);
-		receive = (minutes % receive_interval == 0);
+		receiver = (minutes % receive_interval == 0);
 	}
 	
-	if(receive)
+	if(receiver)
 	{
 		if(LEFT_SENDER == left) animate_receive();
 		else animate_send();
