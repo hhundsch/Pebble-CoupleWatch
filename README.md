@@ -3,7 +3,7 @@ Pebble-CoupleWatch
 
 A watch face intended to be used by couples.
 
-The idea of the watch face is that there are two characters -- a boy and a girl on its own watch face and installed on a separate watches (preferably by owned couples).
+The idea of the watch face is that there are two characters -- a boy and a girl on its own watch face and installed on separate watches (preferably by owned couples).
 
 These characters send hearts to each other at specified times and the animation is setup such that it would look like the heart "travels over" to the other watch (and received by the other character) when sent.
 
@@ -11,8 +11,8 @@ For variation, each character also blinks randomly every minute.
 
 Several options can be easily customized so that when sent, the heart won't "show up" on other watches using the same watch face.
 
-These options are the following (at the moment these can only be set prior to compiling):
-- Character names for both (boy and girl)
+These are the options (at the moment these can only be set prior to compiling):
+- Character names for both characters (boy and girl)
 - Position of both characters (boy on left and girl on right, or vice versa)
 - Who sends the heart first (the character on the left, or the character on the right)
 - Frequency of sending the heart (for both characters)
