@@ -1,0 +1,114 @@
+{
+    "versionLabel": "1.0",
+    "uuid": "43e5cfa3-9f19-4e16-afe0-bbeb5923ddab",
+    "appKeys": {},
+    "longName": "Couplewatch",
+    "versionCode": 1,
+    "capabilities": [
+        ""
+    ],
+    "shortName": "Couple",
+    "companyName": "hhundsch",
+    "watchapp": {
+        "watchface": true
+    },
+    "resources": {
+        "media": [
+            {
+                "menuIcon": true,
+                "type": "png",
+                "name": "IMAGE_MENU_ICON",
+                "file": "images/CoupleWatch.png"
+            },
+            {
+                "type": "png",
+                "name": "IMAGE_BG01",
+                "file": "images/BG01.png"
+            },
+            {
+                "type": "png",
+                "name": "IMAGE_BG02",
+                "file": "images/BG02.png"
+            },
+            {
+                "type": "png",
+                "name": "IMAGE_BG03",
+                "file": "images/BG03.png"
+            },
+            {
+                "type": "png",
+                "name": "IMAGE_BG04",
+                "file": "images/BG04.png"
+            },
+            {
+                "type": "png",
+                "name": "IMAGE_BG05",
+                "file": "images/BG05.png"
+            },
+            {
+                "type": "png",
+                "name": "IMAGE_GB01",
+                "file": "images/GB01.png"
+            },
+            {
+                "type": "png",
+                "name": "IMAGE_GB02",
+                "file": "images/GB02.png"
+            },
+            {
+                "type": "png",
+                "name": "IMAGE_GB03",
+                "file": "images/GB03.png"
+            },
+            {
+                "type": "png",
+                "name": "IMAGE_GB04",
+                "file": "images/GB04.png"
+            },
+            {
+                "type": "png",
+                "name": "IMAGE_GB05",
+                "file": "images/GB05.png"
+            },
+            {
+                "type": "png",
+                "name": "IMAGE_HEART",
+                "file": "images/Heart.png"
+            },
+            {
+                "type": "png",
+                "name": "IMAGE_POP",
+                "file": "images/Pop.png"
+            },
+            {
+                "type": "png",
+                "name": "IMAGE_ARROW_LEFT",
+                "file": "images/ArrowLeft.png"
+            },
+            {
+                "type": "png",
+                "name": "IMAGE_ARROW_RIGHT",
+                "file": "images/ArrowRight.png"
+            },
+            {
+                "characterRegex": "[0-9:\\s\\-']",
+                "type": "font",
+                "name": "FONT_HANDSEAN_26",
+                "file": "fonts/handsean.ttf"
+            },
+            {
+                "trackingAdjust": 1,
+                "characterRegex": "[A-Za-z0-9.\\s\\-]",
+                "type": "font",
+                "name": "FONT_HANDSEAN_14",
+                "file": "fonts/handsean.ttf"
+            },
+            {
+                "characterRegex": "[A-Za-z0-9.\\s\\-\\(\\)]",
+                "type": "font",
+                "name": "FONT_HANDSEAN_12",
+                "file": "fonts/handsean.ttf"
+            }
+        ]
+    }
+}

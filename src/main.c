@@ -1,26 +1,9 @@
-#include "pebble_os.h"
-#include "pebble_app.h"
-#include "pebble_fonts.h"
-#include "app_info.h"
+#include "pebble.h"
+#include <time.h>
+
 #include "app_options.h"
 
-//#ifdef ANDROID
-	#define MY_UUID { 0x76, 0x1B, 0xEF, 0xD5, 0x5E, 0xB9, 0x47, 0x36, 0x93, 0xC8, 0x2A, 0x0C, 0xE4, 0x0E, 0xFA, 0x0A }
-//#else
-//	#define MY_UUID HTTP_UUID
-//#endif
-
-PBL_APP_INFO(MY_UUID, APP_NAME, APP_AUTHOR,
-             APP_VER_MAJOR, APP_VER_MINOR,
-             RESOURCE_ID_IMAGE_MENU_ICON,
-	     	 #ifndef DEBUG
-               APP_INFO_WATCH_FACE
-             #else
-               APP_INFO_STANDARD_APP
-             #endif             
-	     );
-
-Window window;
+Window *window;
 static bool is_animating;
 static bool is_splash_showing;
 
@@ -37,7 +20,7 @@ static bool is_splash_showing;
 #define IMAGE_POS_POSTBLINK 6
 #define IMAGE_POS_BLINK2 7
 
-static InverterLayer inverter;
+static InverterLayer *inverterlayer;
 
 typedef struct
 {
@@ -70,12 +53,13 @@ animation_details animation_gb[IMAGE_COUNT] =
 	{	.image_index = RESOURCE_ID_IMAGE_GB05,	.show_interval = 200	}
 };
 
-static BmpContainer me;
-static AppContextRef appctx;
+static GBitmap* me;
+static BitmapLayer* melayer;
+//static GContext* appctx;
 static bool boy;
 static bool left;
-static char *boy_name = "him";
-static char *girl_name = "her";
+static char *boy_name = "Hub";
+static char *girl_name = "Petra";
 
 #define FRAME_COUNT 6
 #define HEART_ANIMATION_DURATION 1500
@@ -106,31 +90,34 @@ animation_frame receive_frames[FRAME_COUNT];
 animation_frame receive_frames_left[FRAME_COUNT];
 animation_frame receive_frames_right[FRAME_COUNT];
 
-static BmpContainer heart;
-static PropertyAnimation send_animation[FRAME_COUNT];
-static PropertyAnimation receive_animation[FRAME_COUNT];
-static PropertyAnimation pop_animation;
+static GBitmap* heart;
+static BitmapLayer* heartlayer;
+struct Animation* send_animation[FRAME_COUNT];
+struct Animation* receive_animation[FRAME_COUNT];
+struct Animation* pop_animation;
 
 #define IMAGE_ARROW_WIDTH 40
 #define IMAGE_ARROW_HEIGHT 20
-static BmpContainer top_arrow;
-static BmpContainer bot_arrow;
+static GBitmap* top_arrow;
+static GBitmap* bot_arrow;
+static BitmapLayer* top_arrowlayer;
+static BitmapLayer* bot_arrowlayer;
 
 #define TEXT_WIDTH SCREEN_WIDTH - IMAGE_ARROW_WIDTH - (IMAGE_WIDTH / 2)
 #define TEXT_HEIGHT 20
-static TextLayer top_text;
-static TextLayer bot_text;
+static TextLayer* top_textlayer;
+static TextLayer* bot_textlayer;
 
 #define TIME_FRAME_PADDING 5
 #define TIME_FRAME_Y 61 + TIME_FRAME_PADDING //61 (44 + 17) is the lowest possible point of the moving heart animation and the padding for the top side
 #define TIME_FRAME_WIDTH SCREEN_WIDTH - (IMAGE_WIDTH / 2) //the padding for the right/left side
 #define TIME_FRAME_HEIGHT 40
-static TextLayer time_text;
+static TextLayer* time_textlayer;
 
 #define SPLASH_TEXT_WIDTH TIME_FRAME_WIDTH
 #define SPLASH_TEXT_HEIGHT 60
 #define SPLASH_TEXT_Y SCREEN_HEIGHT - SPLASH_TEXT_HEIGHT
-static TextLayer splash_text;
+static TextLayer* splash_textlayer;
 
 void init_frames();
 void setup_animation();
@@ -143,39 +130,50 @@ void setup_time();
 void setup_background();
 void animate_heart(bool send);
 void animate_pop();
-void set_time(PblTm *t);
+void set_time(const struct tm* t);
+
+AppTimer* timer_handle;
+static void handle_timer(void* cookie);
 
 void clear_background()
 {
-	layer_remove_from_parent((Layer *) &top_arrow.layer);
-	layer_remove_from_parent((Layer *) &bot_arrow.layer);
-	bmp_deinit_container(&top_arrow);
-	bmp_deinit_container(&bot_arrow);
+	layer_remove_from_parent((Layer *) top_arrowlayer);
+	layer_remove_from_parent((Layer *) bot_arrowlayer);
+	//bmp_deinit_container(top_arrow);
+	bitmap_layer_destroy(top_arrowlayer);
+	gbitmap_destroy(top_arrow);
+	//bmp_deinit_container(bot_arrow);
+	bitmap_layer_destroy(bot_arrowlayer);
+	gbitmap_destroy(bot_arrow);
 	
-	layer_remove_from_parent((Layer *) &top_text);
-	layer_remove_from_parent((Layer *) &bot_text);
+	layer_remove_from_parent((Layer *) top_textlayer);
+	layer_remove_from_parent((Layer *) bot_textlayer);
 }
 
 void clear_me()
 {
-	layer_remove_from_parent((Layer *) &me.layer);
-	bmp_deinit_container(&me);
+	layer_remove_from_parent((Layer *) melayer);
+	//bmp_deinit_container(me);
+	bitmap_layer_destroy(melayer);
+	gbitmap_destroy(me);
 }
 
 void clear_heart()
 {
-	layer_remove_from_parent((Layer *) &heart.layer);
-	bmp_deinit_container(&heart);
+	layer_remove_from_parent((Layer *) heartlayer);
+	//bmp_deinit_container(&heart);
+	bitmap_layer_destroy(heartlayer);
+	gbitmap_destroy(heart);
 }
 
 void clear_time()
 {
-	layer_remove_from_parent((Layer *) &time_text);
+	layer_remove_from_parent((Layer *) time_textlayer);
 }
 
 void clear_splash_text()
 {
-	layer_remove_from_parent((Layer *) &splash_text);
+	layer_remove_from_parent((Layer *) splash_textlayer);
 }
 
 void clear_screen()
@@ -191,7 +189,8 @@ void animate_send()
 	if(is_animating) return;
 	else is_animating = true;
 	
-	app_timer_send_event(appctx, animation[IMAGE_POS_NORMAL].show_interval, IMAGE_POS_PRE);
+	//app_timer_send_event(appctx, animation[IMAGE_POS_NORMAL].show_interval, IMAGE_POS_PRE);
+	app_timer_register(animation[IMAGE_POS_NORMAL].show_interval,handle_timer,(void *)IMAGE_POS_PRE);
 }
 
 void animate_receive()
@@ -212,7 +211,8 @@ void animate_blink()
 	else is_animating = true;
 
 	if((rand() % 100) <= EYES_BLINK_RATE)
-		app_timer_send_event(appctx, animation[IMAGE_POS_BLINK].show_interval, IMAGE_POS_BLINK);
+		//app_timer_send_event(appctx, animation[IMAGE_POS_BLINK].show_interval, IMAGE_POS_BLINK);
+		app_timer_register(animation[IMAGE_POS_BLINK].show_interval,handle_timer,(void *)IMAGE_POS_BLINK);
 	else
 		is_animating = false;
 }
@@ -270,9 +270,13 @@ void pop_animation_stopped(Animation *animation, void *data)
 		setup_background();
 		setup_time();
 		
-		PblTm current;
-		get_time(&current);
-		set_time(&current);
+		struct tm* current;
+		time_t t;
+		
+		//get_time(current);
+		t = time(NULL);
+		current = localtime(&t);
+		set_time(current);
 	}
 	
 	setup_me(IMAGE_POS_NORMAL);
@@ -286,27 +290,28 @@ void pop_animation_stopped(Animation *animation, void *data)
 
 void animate_pop()
 {
-	if(left) property_animation_init_layer_frame(&pop_animation, (Layer *) &heart.layer, &FRAME05, &FRAME05);
-	else property_animation_init_layer_frame(&pop_animation, (Layer *) &heart.layer, &FRAME07, &FRAME07);
+	pop_animation = animation_create();
+	//if(left) property_animation_init_layer_frame(&pop_animation, (Layer *) heartlayer, &FRAME05, &FRAME05);
+	//else property_animation_init_layer_frame(&pop_animation, (Layer *) heartlayer, &FRAME07, &FRAME07);
 
-	animation_set_duration(&pop_animation.animation, animation[IMAGE_POS_RECEIVED].show_interval);
-	animation_set_curve(&pop_animation.animation, AnimationCurveEaseInOut);
+	animation_set_duration(pop_animation, animation[IMAGE_POS_RECEIVED].show_interval);
+	animation_set_curve(pop_animation, AnimationCurveEaseInOut);
 	
-	animation_set_handlers(&pop_animation.animation,
+	animation_set_handlers(pop_animation,
 						   (AnimationHandlers)
 						   {
 							   .stopped = (AnimationStoppedHandler)pop_animation_stopped
 						   },
 						   NULL);
-	animation_schedule(&pop_animation.animation);
+	animation_schedule(pop_animation);
 }
 
 void animate_heart(bool send)
 {
 	for(int x = 0; x < FRAME_COUNT - 1; x++)
 	{
-		if(send) animation_schedule(&send_animation[x].animation);
-		else animation_schedule(&receive_animation[x].animation);
+		if(send) animation_schedule(send_animation[x]);
+		else animation_schedule(receive_animation[x]);
 	}
 }
 
@@ -376,8 +381,9 @@ void init_frames()
 
 void setup_inverter()
 {
-	inverter_layer_init(&inverter, GRect(0, 0, SCREEN_WIDTH, (INVERT_COLOR ? SCREEN_HEIGHT : 0)));
-	layer_add_child(&window.layer, &inverter.layer);
+	//inverter_layer_init(inverterlayer, GRect(0, 0, SCREEN_WIDTH, (INVERT_COLOR ? SCREEN_HEIGHT : 0)));
+	inverterlayer = inverter_layer_create(GRect(0, 0, SCREEN_WIDTH, (INVERT_COLOR ? SCREEN_HEIGHT : 0)));
+	layer_add_child((Layer *)window, (Layer *)inverterlayer);
 }
 
 void setup_animation()
@@ -425,14 +431,16 @@ void setup_animation()
 
 	for(int x = 0; x < FRAME_COUNT - 1; x++) //-1 because animate_heart looks at the current frame and the next frame in the array
 	{
-		property_animation_init_layer_frame(&send_animation[x], (Layer *) &heart.layer, &send_frames[x].frame, &send_frames[x + 1].frame);
-		animation_set_duration(&send_animation[x].animation, send_frames[x].duration);
-		animation_set_delay(&send_animation[x].animation, total_send_delay);
+		//property_animation_init_layer_frame(&send_animation[x], (Layer *) heartlayer, &send_frames[x].frame, &send_frames[x + 1].frame);
+		send_animation[x] = animation_create();
+		
+		animation_set_duration(send_animation[x], send_frames[x].duration);
+		animation_set_delay(send_animation[x], total_send_delay);
 		total_send_delay += send_frames[x].duration;
 		
 		if(x == FRAME_COUNT - 2) //-2 because that is the last item when the condition to break is < X - 1
 		{
-			animation_set_handlers(&send_animation[x].animation,
+			animation_set_handlers(send_animation[x],
 								   (AnimationHandlers)
 								   {
 									   .stopped = (AnimationStoppedHandler)send_animation_stopped
@@ -440,17 +448,19 @@ void setup_animation()
 								   NULL);
 		}
 		
-		animation_set_curve(&send_animation[x].animation, AnimationCurveLinear);
+		animation_set_curve(send_animation[x], AnimationCurveLinear);
 		
-		property_animation_init_layer_frame(&receive_animation[x], (Layer *) &heart.layer, &receive_frames[x].frame, &receive_frames[x + 1].frame);
-		animation_set_duration(&receive_animation[x].animation, receive_frames[x].duration);
+		//property_animation_init_layer_frame(receive_animation[x], (Layer *) heartlayer, &receive_frames[x].frame, &receive_frames[x + 1].frame);
+		receive_animation[x] = animation_create();
 		
-		if(total_receive_delay != 0) animation_set_delay(&receive_animation[x].animation, total_receive_delay);
+		animation_set_duration(receive_animation[x], receive_frames[x].duration);
+		
+		if(total_receive_delay != 0) animation_set_delay(receive_animation[x], total_receive_delay);
 		total_receive_delay += receive_frames[x].duration;
 		
 		if(x == FRAME_COUNT - 2) //-2 because that is the last item when the condition to break is < X - 1
 		{
-			animation_set_handlers(&receive_animation[x].animation,
+			animation_set_handlers(receive_animation[x],
 							   (AnimationHandlers)
 							   {
 								   .stopped = (AnimationStoppedHandler)receive_animation_stopped
@@ -458,7 +468,7 @@ void setup_animation()
 							   NULL);
 		}
 			
-		animation_set_curve(&receive_animation[x].animation, AnimationCurveLinear);
+		animation_set_curve(receive_animation[x], AnimationCurveLinear);
 	}
 }
 
@@ -466,20 +476,24 @@ void setup_heart(bool send, bool pop)
 {
 	if(pop) 
 	{
-		bmp_init_container(RESOURCE_ID_IMAGE_POP, &heart);
+		//bmp_init_container(RESOURCE_ID_IMAGE_POP, &heart);
+		heart = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_POP);
+		heartlayer = bitmap_layer_create(FRAME05);
 		
-		if(left) layer_set_frame((Layer *) &heart.layer, FRAME05);
-		else layer_set_frame((Layer *) &heart.layer, FRAME07);
+		if(left) layer_set_frame((Layer *) heartlayer, FRAME05);
+		else layer_set_frame((Layer *) heartlayer, FRAME07);
 	}
 	else
 	{
-		bmp_init_container(RESOURCE_ID_IMAGE_HEART, &heart);
+		//bmp_init_container(RESOURCE_ID_IMAGE_HEART, &heart);
+		heart = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_POP);
+		heartlayer = bitmap_layer_create(FRAME05);
 		
-		if(send) layer_set_frame((Layer *) &heart.layer, send_frames[0].frame);
-		else layer_set_frame((Layer *) &heart.layer, receive_frames[0].frame);
+		if(send) layer_set_frame((Layer *) heartlayer, send_frames[0].frame);
+		else layer_set_frame((Layer *) heartlayer, receive_frames[0].frame);
 	}
 	
-	layer_insert_below_sibling((Layer *) &heart.layer, (Layer *) &inverter);
+	layer_insert_below_sibling((Layer *) heartlayer, (Layer *) inverterlayer);
 }
 
 void setup_names()
@@ -510,91 +524,107 @@ void setup_me(int current_position)
 {
 	if(current_position >= IMAGE_COUNT) current_position = IMAGE_POS_NORMAL;
 	
-	bmp_init_container(animation[current_position].image_index, &me);
+	//bmp_init_container(animation[current_position].image_index, &me);
+	me = gbitmap_create_with_resource(animation[current_position].image_index);
+	melayer = bitmap_layer_create(FRAME05);
 		
-	if(left) layer_set_frame((Layer *) &me.layer, GRect(-IMAGE_WIDTH / 2, 0, IMAGE_WIDTH, IMAGE_HEIGHT));
-	else layer_set_frame((Layer *) &me.layer, GRect(SCREEN_WIDTH-(IMAGE_WIDTH / 2), 0, IMAGE_WIDTH, IMAGE_HEIGHT));
+	if(left) layer_set_frame((Layer *) melayer, GRect(-IMAGE_WIDTH / 2, 0, IMAGE_WIDTH, IMAGE_HEIGHT));
+	else layer_set_frame((Layer *) melayer, GRect(SCREEN_WIDTH-(IMAGE_WIDTH / 2), 0, IMAGE_WIDTH, IMAGE_HEIGHT));
 	
-	layer_insert_below_sibling((Layer *) &me.layer, (Layer *) &inverter);
+	layer_insert_below_sibling((Layer *) melayer, (Layer *) inverterlayer);
 }
 
 void setup_time()
 {
 	if(left)
-		text_layer_init(&time_text, GRect((IMAGE_WIDTH / 2) + TIME_FRAME_PADDING, TIME_FRAME_Y, TIME_FRAME_WIDTH, TIME_FRAME_HEIGHT));
+		//text_layer_init(&time_text, GRect((IMAGE_WIDTH / 2) + TIME_FRAME_PADDING, TIME_FRAME_Y, TIME_FRAME_WIDTH, TIME_FRAME_HEIGHT));
+		time_textlayer = text_layer_create(GRect((IMAGE_WIDTH / 2) + TIME_FRAME_PADDING, TIME_FRAME_Y, TIME_FRAME_WIDTH, TIME_FRAME_HEIGHT));
 	else
-		text_layer_init(&time_text, GRect(TIME_FRAME_PADDING, TIME_FRAME_Y, TIME_FRAME_WIDTH, TIME_FRAME_HEIGHT));
+		//text_layer_init(&time_text, GRect(TIME_FRAME_PADDING, TIME_FRAME_Y, TIME_FRAME_WIDTH, TIME_FRAME_HEIGHT));
+	    time_textlayer = text_layer_create(GRect(TIME_FRAME_PADDING, TIME_FRAME_Y, TIME_FRAME_WIDTH, TIME_FRAME_HEIGHT));
 	
-	text_layer_set_font(&time_text, fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_HANDSEAN_26)));
-	text_layer_set_text_alignment(&time_text, GTextAlignmentCenter);
-	layer_insert_below_sibling((Layer *) &time_text, (Layer *) &inverter);
+	text_layer_set_font(time_textlayer, fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_HANDSEAN_26)));
+	text_layer_set_text_alignment(time_textlayer, GTextAlignmentCenter);
+	layer_insert_below_sibling((Layer *) time_textlayer, (Layer *) inverterlayer);
 }
 
 void setup_splash_text(bool first)
 {
 	if(left)
-		text_layer_init(&splash_text, GRect((IMAGE_WIDTH / 2), SPLASH_TEXT_Y, SPLASH_TEXT_WIDTH, SPLASH_TEXT_HEIGHT));
+		//text_layer_init(&splash_text, GRect((IMAGE_WIDTH / 2), SPLASH_TEXT_Y, SPLASH_TEXT_WIDTH, SPLASH_TEXT_HEIGHT));
+		splash_textlayer = text_layer_create(GRect((IMAGE_WIDTH / 2), SPLASH_TEXT_Y, SPLASH_TEXT_WIDTH, SPLASH_TEXT_HEIGHT));
 	else
-		text_layer_init(&splash_text, GRect(0, SPLASH_TEXT_Y, SPLASH_TEXT_WIDTH, SPLASH_TEXT_HEIGHT));
+		//text_layer_init(&splash_text, GRect(0, SPLASH_TEXT_Y, SPLASH_TEXT_WIDTH, SPLASH_TEXT_HEIGHT));
+		splash_textlayer = text_layer_create(GRect(0, SPLASH_TEXT_Y, SPLASH_TEXT_WIDTH, SPLASH_TEXT_HEIGHT));
 	
 	//static char *splash_text_value = " ";
-	if(first) text_layer_set_text(&splash_text, "created by ihtnc");
-	else text_layer_set_text(&splash_text, "(c) 2013 CoupleWatch");
+	if(first) text_layer_set_text(splash_textlayer, "created by hhundsch");
+	else text_layer_set_text(splash_textlayer, "(c) 2014 CoupleWatch");
 			
-	text_layer_set_font(&splash_text, fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_HANDSEAN_12)));
-	text_layer_set_overflow_mode(&splash_text, GTextOverflowModeWordWrap);
-	text_layer_set_text_alignment(&splash_text, GTextAlignmentCenter);
-	layer_insert_below_sibling((Layer *) &splash_text, (Layer *) &inverter);
+	text_layer_set_font(splash_textlayer, fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_HANDSEAN_12)));
+	text_layer_set_overflow_mode(splash_textlayer, GTextOverflowModeWordWrap);
+	text_layer_set_text_alignment(splash_textlayer, GTextAlignmentCenter);
+	layer_insert_below_sibling((Layer *) splash_textlayer, (Layer *) inverterlayer);
 }
 
 void setup_background()
 {
 	if(left) 
 	{
-		bmp_init_container(RESOURCE_ID_IMAGE_ARROW_LEFT, &top_arrow);
-		bmp_init_container(RESOURCE_ID_IMAGE_ARROW_LEFT, &bot_arrow);
+		//bmp_init_container(RESOURCE_ID_IMAGE_ARROW_LEFT, &top_arrow);
+		//bmp_init_container(RESOURCE_ID_IMAGE_ARROW_LEFT, &bot_arrow);
+		top_arrow = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_ARROW_LEFT);
+		top_arrowlayer = bitmap_layer_create(FRAME05);
+		bot_arrow = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_ARROW_LEFT);
+		bot_arrowlayer = bitmap_layer_create(FRAME05);
 		
-		layer_set_frame((Layer *) &top_arrow.layer, GRect(SCREEN_WIDTH - IMAGE_ARROW_WIDTH, -(IMAGE_ARROW_HEIGHT / 2), IMAGE_ARROW_WIDTH, IMAGE_ARROW_HEIGHT));
-		layer_set_frame((Layer *) &bot_arrow.layer, GRect(IMAGE_WIDTH / 2, SCREEN_HEIGHT - (IMAGE_ARROW_HEIGHT / 2), IMAGE_ARROW_WIDTH, IMAGE_ARROW_HEIGHT));
+		layer_set_frame((Layer *) top_arrowlayer, GRect(SCREEN_WIDTH - IMAGE_ARROW_WIDTH, -(IMAGE_ARROW_HEIGHT / 2), IMAGE_ARROW_WIDTH, IMAGE_ARROW_HEIGHT));
+		layer_set_frame((Layer *) bot_arrowlayer, GRect(IMAGE_WIDTH / 2, SCREEN_HEIGHT - (IMAGE_ARROW_HEIGHT / 2), IMAGE_ARROW_WIDTH, IMAGE_ARROW_HEIGHT));
 		
-		text_layer_init(&top_text, GRect(IMAGE_WIDTH / 2, 0, TEXT_WIDTH, TEXT_HEIGHT));
-		text_layer_init(&bot_text, GRect((IMAGE_WIDTH / 2) + IMAGE_ARROW_WIDTH, SCREEN_HEIGHT - TEXT_HEIGHT, TEXT_WIDTH, TEXT_HEIGHT));
+		//text_layer_init(top_textlayer, GRect(IMAGE_WIDTH / 2, 0, TEXT_WIDTH, TEXT_HEIGHT));
+		top_textlayer = text_layer_create(GRect(IMAGE_WIDTH / 2, 0, TEXT_WIDTH, TEXT_HEIGHT));
+		//text_layer_init(bot_textlayer, GRect((IMAGE_WIDTH / 2) + IMAGE_ARROW_WIDTH, SCREEN_HEIGHT - TEXT_HEIGHT, TEXT_WIDTH, TEXT_HEIGHT));
+		bot_textlayer = text_layer_create(GRect((IMAGE_WIDTH / 2) + IMAGE_ARROW_WIDTH, SCREEN_HEIGHT - TEXT_HEIGHT, TEXT_WIDTH, TEXT_HEIGHT));
 		
-		text_layer_set_text_alignment(&top_text, GTextAlignmentRight);
+		text_layer_set_text_alignment(top_textlayer, GTextAlignmentRight);
 	}
 	else 
 	{
-		bmp_init_container(RESOURCE_ID_IMAGE_ARROW_RIGHT, &top_arrow);
-		bmp_init_container(RESOURCE_ID_IMAGE_ARROW_RIGHT, &bot_arrow);
+		//bmp_init_container(RESOURCE_ID_IMAGE_ARROW_RIGHT, &top_arrow);
+		//bmp_init_container(RESOURCE_ID_IMAGE_ARROW_RIGHT, &bot_arrow);
+		top_arrow = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_ARROW_RIGHT);
+		top_arrowlayer = bitmap_layer_create(FRAME05);
+		bot_arrow = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_ARROW_RIGHT);
+		bot_arrowlayer = bitmap_layer_create(FRAME05);		
+		layer_set_frame((Layer *) top_arrowlayer, GRect(0, -(IMAGE_ARROW_HEIGHT / 2), IMAGE_ARROW_WIDTH, IMAGE_ARROW_HEIGHT));
+		layer_set_frame((Layer *) bot_arrowlayer, GRect(SCREEN_WIDTH - IMAGE_WIDTH, SCREEN_HEIGHT - (IMAGE_ARROW_HEIGHT / 2), IMAGE_ARROW_WIDTH, IMAGE_ARROW_HEIGHT));
 		
-		layer_set_frame((Layer *) &top_arrow.layer, GRect(0, -(IMAGE_ARROW_HEIGHT / 2), IMAGE_ARROW_WIDTH, IMAGE_ARROW_HEIGHT));
-		layer_set_frame((Layer *) &bot_arrow.layer, GRect(SCREEN_WIDTH - IMAGE_WIDTH, SCREEN_HEIGHT - (IMAGE_ARROW_HEIGHT / 2), IMAGE_ARROW_WIDTH, IMAGE_ARROW_HEIGHT));
-		
-		text_layer_init(&top_text, GRect(IMAGE_ARROW_WIDTH, 0, TEXT_WIDTH, TEXT_HEIGHT));
-		text_layer_init(&bot_text, GRect(0, SCREEN_HEIGHT - TEXT_HEIGHT, TEXT_WIDTH, TEXT_HEIGHT));
-		
-		text_layer_set_text_alignment(&bot_text, GTextAlignmentRight);
+		//text_layer_init(top_textlayer, GRect(IMAGE_ARROW_WIDTH, 0, TEXT_WIDTH, TEXT_HEIGHT));
+		top_textlayer = text_layer_create(GRect(IMAGE_ARROW_WIDTH, 0, TEXT_WIDTH, TEXT_HEIGHT));
+		//text_layer_init(bot_textlayer, GRect(0, SCREEN_HEIGHT - TEXT_HEIGHT, TEXT_WIDTH, TEXT_HEIGHT));
+		bot_textlayer = text_layer_create(GRect(0, SCREEN_HEIGHT - TEXT_HEIGHT, TEXT_WIDTH, TEXT_HEIGHT));
+		text_layer_set_text_alignment(bot_textlayer, GTextAlignmentRight);
 	}
 	
 	if(boy)
 	{
-		text_layer_set_text(&top_text, girl_name);
-		text_layer_set_text(&bot_text, boy_name);
+		text_layer_set_text(top_textlayer, girl_name);
+		text_layer_set_text(bot_textlayer, boy_name);
 	}
 	else
 	{
-		text_layer_set_text(&top_text, boy_name);
-		text_layer_set_text(&bot_text, girl_name);
+		text_layer_set_text(top_textlayer, boy_name);
+		text_layer_set_text(bot_textlayer, girl_name);
 	}
 	
-	text_layer_set_font(&top_text, fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_HANDSEAN_14)));
-	text_layer_set_font(&bot_text, fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_HANDSEAN_14)));
+	text_layer_set_font(top_textlayer, fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_HANDSEAN_14)));
+	text_layer_set_font(bot_textlayer, fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_HANDSEAN_14)));
 	
-	layer_insert_below_sibling((Layer *) &top_arrow.layer, (Layer *) &inverter);
-	layer_insert_below_sibling((Layer *) &bot_arrow.layer, (Layer *) &inverter);
+	layer_insert_below_sibling((Layer *) top_arrowlayer, (Layer *) inverterlayer);
+	layer_insert_below_sibling((Layer *) bot_arrowlayer, (Layer *) inverterlayer);
 	
-	layer_insert_below_sibling((Layer *) &top_text, (Layer *) &inverter);
-	layer_insert_below_sibling((Layer *) &bot_text, (Layer *) &inverter);
+	layer_insert_below_sibling((Layer *) top_textlayer, (Layer *) inverterlayer);
+	layer_insert_below_sibling((Layer *) bot_textlayer, (Layer *) inverterlayer);
 }
 
 void setup_screen()
@@ -630,8 +660,11 @@ static void show_splash()
 	animate_send();
 }
 
-static void handle_timer(AppContextRef ctx, AppTimerHandle handle, uint32_t cookie)
+//static void handle_timer(AppContextRef ctx, AppTimerHandle handle, uint32_t cookie)
+static void handle_timer(void *data)
 {
+	uint32_t cookie = (uint32_t) data;
+	
 	if(is_animating == false) return;
 	
 	clear_me();
@@ -686,33 +719,37 @@ static void handle_timer(AppContextRef ctx, AppTimerHandle handle, uint32_t cook
 		return;
 	}
 	
-	app_timer_send_event(ctx, animation[cookie].show_interval, new_position);
+	//app_timer_send_event(ctx, animation[cookie].show_interval, new_position);
+	timer_handle = app_timer_register(animation[cookie].show_interval, handle_timer, (void *) new_position);
+	return;
 }
 
-void set_time(PblTm *t)
+void set_time(const struct tm* t)
 {
 	static char hourText[] = "04:44"; //this is the longest possible text based on the font used
 	if(clock_is_24h_style())
-		string_format_time(hourText, sizeof(hourText), "%H:%M", t);
+		//string_format_time(hourText, sizeof(hourText), "%H:%M", t);
+		strftime(hourText, sizeof(hourText), "%H:%M", t);
 	else
-		string_format_time(hourText, sizeof(hourText), "%I:%M", t);
+		//string_format_time(hourText, sizeof(hourText), "%I:%M", t);
+		strftime(hourText, sizeof(hourText), "%I:%M", t);
 	
-	text_layer_set_text(&time_text, hourText);
+	text_layer_set_text(time_textlayer, hourText);
 }
 
-void handle_second_tick(AppContextRef ctx, PebbleTickEvent *t)
+void handle_second_tick(struct tm* t, TimeUnits tu)
 {
-	(void)ctx;
+	//(void)ctx;
 	
 	if(is_splash_showing == true) return;
 	
-	int seconds = t->tick_time->tm_sec;
-	int minutes = t->tick_time->tm_min;
-	int hours = t->tick_time->tm_hour;
+	int seconds = t->tm_sec;
+	int minutes = t->tm_min;
+	int hours = t->tm_hour;
 	
 	if(seconds == 0)
 	{
-		set_time(t->tick_time);	
+		set_time(t);	
 	}
 	
 	if(seconds == EYES_BLINK_START)
@@ -853,22 +890,22 @@ void handle_second_tick(AppContextRef ctx, PebbleTickEvent *t)
 	}
 #endif
 
-void handle_init(AppContextRef ctx)
+void init(void)
 {
-	window_init(&window, "Main");
+	window = window_create();
 	#ifdef DEBUG
-		window_set_fullscreen(&window, true);
-		window_set_click_config_provider(&window, (ClickConfigProvider) config_provider);
+		window_set_fullscreen(window, true);
+		window_set_click_config_provider(window, (ClickConfigProvider) config_provider);
 	#endif
 
-	window_stack_push(&window, true);
+	window_stack_push(window, true);
 
-	resource_init_current_app(&APP_RESOURCES);
+	//resource_init_current_app(&APP_RESOURCES);
 
 	srand(time(NULL));
 	is_animating = false;
 	
-	appctx = ctx;
+	//appctx = ctx;
 	boy = BOY_WATCH;
 	
 	if(boy && BOY_ON_LEFT) left = true;
@@ -877,27 +914,15 @@ void handle_init(AppContextRef ctx)
 	show_splash();
 }
 
-void handle_deinit(AppContextRef ctx) 
+void deinit(void) 
 {
-	(void)ctx;
-	
 	clear_screen();
+	window_destroy(window);
 }
 
-void pbl_main(void *params)
+int main(void)
 {
-	PebbleAppHandlers handlers = 
-	{
-		.init_handler = &handle_init,
-		.deinit_handler = &handle_deinit,
-		.timer_handler = &handle_timer,
-		
-		.tick_info = 
-		{
-			.tick_handler = &handle_second_tick,
-			.tick_units = SECOND_UNIT
-		},
-	};
-
-  	app_event_loop(params, &handlers);
+    init();
+  	app_event_loop();
+	deinit();
 }

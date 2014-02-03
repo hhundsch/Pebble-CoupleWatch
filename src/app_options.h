@@ -14,8 +14,8 @@
 	#define LEFT_SENDER true				//determines if the character that is on the left will be designated as the "sender" character
 	
 	#define DEFAULT_NAMES true				//if true, the other character will be called "Him" or "Her", otherwise the value of the BOY_NAME_CUSTOM/GIRL_NAME_CUSTOM will be used accordingly
-	#define BOY_NAME_CUSTOM "Him"
-	#define GIRL_NAME_CUSTOM "Her"	
+	#define BOY_NAME_CUSTOM "Hub"
+	#define GIRL_NAME_CUSTOM "Petra"	
 	
 	#define INVERT_COLOR false				//inverts the color of the whole watch face
 
